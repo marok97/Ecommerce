@@ -1,0 +1,85 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: InventoryService/Dockerfile
+    container_name: inventory-service
+    environment:
+      - ConnectionStrings__PostgresDb=Server=postgres;Port=5432;Database=ecommerce;User Id=postgres;Password=postgres;
+      - ASPNETCORE_URLS=http://+:5000
+    ports:
+      - "5001:5000"
+    depends_on:
+      - postgres
+    networks:
+      - ecommerce-network
+
+  product-service:
+    build:
+      context: .
+      dockerfile: ProductService/Dockerfile
+    container_name: product-service
+    environment:
+      - ConnectionStrings__PostgresDb=Server=postgres;Port=5432;Database=ecommerce;User Id=postgres;Password=postgres;
+      - ASPNETCORE_URLS=http://+:5000
+    ports:
+      - "5002:5000"
+    depends_on:
+      - postgres
+    networks:
+      - ecommerce-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: NotificationService/Dockerfile
+    container_name: notification-service
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+    ports:
+      - "5003:5000"
+    networks:
+      - ecommerce-network
+
+  order-service:
+    build:
+      context: .
+      dockerfile: OrderService/Dockerfile
+    container_name: order-service
+    environment:
+      - ConnectionStrings__PostgresDb=Server=postgres;Port=5432;Database=ecommerce;User Id=postgres;Password=postgres;
+      - ASPNETCORE_URLS=http://+:5000
+      - ServiceUrls__ProductService=http://product-service:5000
+      - ServiceUrls__InventoryService=http://inventory-service:5000
+      - ServiceUrls__NotificationService=http://notification-service:5000
+    ports:
+      - "5004:5000"
+    depends_on:
+      - postgres
+      - product-service
+      - inventory-service
+      - notification-service
+    networks:
+      - ecommerce-network
+
+networks:
+  ecommerce-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
